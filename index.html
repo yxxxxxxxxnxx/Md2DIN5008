@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Md2DIN5008</title>
+  </head>
+  <body>
+    <header class="toolbar">
+      <h1>Md2DIN5008</h1>
+      <span class="hint">Markdown → DIN 5008 business letter PDF</span>
+      <div class="spacer"></div>
+      <button id="new-letter" class="btn">New letter</button>
+      <label class="btn">
+        Open .md
+        <input id="open-file" type="file" accept=".md,.markdown,.txt,text/markdown" hidden />
+      </label>
+      <label class="btn">
+        Attach stamp image
+        <input id="stamp-file" type="file" accept="image/png,image/jpeg,image/gif,image/svg+xml,image/webp" hidden />
+      </label>
+      <div class="dropdown">
+        <button id="signature-btn" class="btn" type="button" aria-haspopup="menu">Signature</button>
+        <div class="menu" role="menu">
+          <label class="menu-item" role="menuitem" tabindex="0">
+            Upload…
+            <input id="signature-file" type="file" accept="image/png,image/jpeg,image/gif,image/svg+xml,image/webp" hidden />
+          </label>
+          <button id="signature-draw" class="menu-item" role="menuitem" type="button">Draw…</button>
+          <button id="signature-remove" class="menu-item danger" role="menuitem" type="button" hidden>Remove</button>
+        </div>
+      </div>
+      <button id="save-md" class="btn">Save .md</button>
+      <button id="download-pdf" class="btn primary" disabled>Download PDF</button>
+    </header>
+
+    <main class="layout">
+      <section class="panel editor">
+        <h2>Markdown <span class="legend">(…) hint · Required* must be filled in</span></h2>
+        <div id="editor"></div>
+      </section>
+
+      <section class="panel preview">
+        <h2>Preview <span id="status" class="status"></span></h2>
+        <pre id="error" class="error" hidden></pre>
+        <iframe id="pdf-frame" title="PDF preview"></iframe>
+      </section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
