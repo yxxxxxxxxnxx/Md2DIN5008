@@ -87,9 +87,9 @@ Mit freundlichen Grüßen
 
 | Text | Size |
 |---|---|
-| Body, subject (bold) | 14 pt |
+| Subject (bold) | 14 pt |
 | Headings in body (bold) | 12 pt |
-| Recipient, info block, tables, signature name, code blocks, page number, stamp code (bold) | 10 pt |
+| Body, recipient, info block, tables, signature name, code blocks, page number, stamp code (bold) | 10 pt |
 | Inline code | 8.8 pt |
 | Footer, return-address line | 8 pt |
 | Text logo (bold) | 24 pt |

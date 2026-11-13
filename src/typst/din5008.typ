@@ -42,8 +42,9 @@
 #let punch-mark-length = 15mm
 #let follow-page-top = 20mm
 
-#let font-size = 14pt
-#let body-pitch = 1.2 * font-size
+#let font-size = 10pt
+#let subject-size = 14pt
+#let body-pitch = line-pitch
 #let small-size = 10pt
 #let heading-size = 12pt
 #let code-size = 10pt
@@ -206,7 +207,7 @@
     v(text-top - follow-page-top)
   }
 
-  block(above: 0pt, below: 3 * body-pitch - font-size, par(justify: false, text(weight: "bold", if subject != none { subject } else { hide[X] })))
+  block(above: 0pt, below: 3 * body-pitch - subject-size, par(justify: false, text(size: subject-size, weight: "bold", if subject != none { subject } else { hide[X] })))
 
   body
 
