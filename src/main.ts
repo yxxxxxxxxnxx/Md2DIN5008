@@ -8,6 +8,7 @@ import { createEditor, refreshHints, setDoc, setField } from './editor';
 import { getLang, onLangChange, setLang as applyLang, t, translateDom, type Lang } from './i18n';
 import { createForm } from './form';
 import { SKELETON } from './schema';
+import { isPdf, pdfToStampPng } from './pdfstamp';
 import { migratePersonalData, sessionGet, sessionSet } from './storage';
 import { dataUrlToBytes, drawSignature, loadSignature, saveSignature, signatureFromFile } from './signature';
 
@@ -65,6 +66,21 @@ function restoreLogo() {
 }
 restoreLogo();
 
+const convertedPdfs = new Map<string, Promise<Uint8Array>>();
+
+function fetchedPdfToPng(ref: string, bytes: Uint8Array): Promise<Uint8Array> {
+  let p = convertedPdfs.get(ref);
+  if (!p) {
+    p = pdfToStampPng(bytes).then((png) => {
+      if (!png) throw new Error(t('err.pdfEmpty', { name: ref }));
+      return png;
+    });
+    convertedPdfs.set(ref, p);
+    p.catch(() => convertedPdfs.delete(ref));
+  }
+  return p;
+}
+
 async function resolveImage(ref: string, kind: 'stamp' | 'logo', menuHint: string): Promise<{ path: string; bytes: Uint8Array } | undefined> {
   if (!ref) return undefined;
   const local = attached.get(ref);
@@ -83,7 +99,9 @@ async function resolveImage(ref: string, kind: 'stamp' | 'logo', menuHint: strin
   }
   try {
     const mime = ref.startsWith('data:') ? ref.slice(5, ref.indexOf(';')) : undefined;
-    return { path: `/${kind}.${extensionFor(ref, mime)}`, bytes: await p };
+    const bytes = await p;
+    if (kind === 'stamp' && isPdf(bytes)) return { path: '/stamp.png', bytes: await fetchedPdfToPng(ref, bytes) };
+    return { path: `/${kind}.${extensionFor(ref, mime)}`, bytes };
   } catch (e) {
     throw new Error(t('err.imageLoad', { ref, reason: (e as Error).message }));
   }
@@ -238,17 +256,22 @@ function setSignature(dataUrl: string | null) {
 setSignature(loadSignature());
 
 const sigDialog = $<HTMLDialogElement>('#signature-dialog');
+const helpStampDialog = $<HTMLDialogElement>('#help-stamp-dialog');
 const closeMenu = () => {
-  if (sigDialog.open) sigDialog.close();
+  for (const d of [sigDialog, helpStampDialog]) if (d.open) d.close();
   (document.activeElement as HTMLElement | null)?.blur();
 };
 sigButton.addEventListener('click', () => sigDialog.showModal());
 $<HTMLButtonElement>('#signature-cancel').addEventListener('click', closeMenu);
-sigDialog.addEventListener('click', (e) => {
-  const r = sigDialog.getBoundingClientRect();
-  const outside = e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
-  if (e.target === sigDialog && outside) closeMenu();
-});
+$<HTMLButtonElement>('#help-stamp-btn').addEventListener('click', () => helpStampDialog.showModal());
+$<HTMLButtonElement>('#help-stamp-close').addEventListener('click', closeMenu);
+for (const d of [sigDialog, helpStampDialog]) {
+  d.addEventListener('click', (e) => {
+    const r = d.getBoundingClientRect();
+    const outside = e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+    if (e.target === d && outside) closeMenu();
+  });
+}
 
 $<HTMLInputElement>('#signature-file').addEventListener('change', async (ev) => {
   const input = ev.target as HTMLInputElement;
@@ -301,12 +324,32 @@ $<HTMLInputElement>('#logo-file').addEventListener('change', async (ev) => {
 $<HTMLInputElement>('#stamp-file').addEventListener('change', async (ev) => {
   const input = ev.target as HTMLInputElement;
   const file = input.files?.[0];
+  input.value = '';
+  (document.activeElement as HTMLElement | null)?.blur();
   if (!file) return;
-  attached.set(file.name, new Uint8Array(await file.arrayBuffer()));
+  let bytes: Uint8Array = new Uint8Array(await file.arrayBuffer());
+  if (isPdf(bytes)) {
+    setStatus(t('status.pdf'), 'busy');
+    try {
+      const png = await pdfToStampPng(bytes);
+      if (!png) {
+        setStatus(t('status.error'), 'err');
+        showError(t('err.pdfEmpty', { name: file.name }));
+        return;
+      }
+      bytes = png;
+    } catch (e) {
+      setStatus(t('status.error'), 'err');
+      showError(t('err.pdfRead', { name: file.name, reason: (e as Error).message }));
+      return;
+    }
+  }
+  attached.set(file.name, bytes);
   if (!setField(editor, 'stamp.image', file.name)) {
     showError(t('err.noStampLine'));
+    return;
   }
-  input.value = '';
+  schedule();
 });
 
 function download(url: string, name: string) {

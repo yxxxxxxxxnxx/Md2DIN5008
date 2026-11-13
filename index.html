@@ -65,9 +65,15 @@
             </label>
             <label class="mbox-item" tabindex="0">
               <span data-i18n="menu.stamp">Stamp</span>
-              <input id="stamp-file" type="file" accept="image/png,image/jpeg,image/gif,image/svg+xml,image/webp" hidden />
+              <input id="stamp-file" type="file" accept="image/png,image/jpeg,image/gif,image/svg+xml,image/webp,application/pdf,.pdf" hidden />
             </label>
             <button id="signature-btn" class="mbox-item" type="button" aria-haspopup="dialog" data-i18n="menu.signature">Signature</button>
+          </div>
+        </div>
+        <div class="mbox has-sub" tabindex="-1">
+          <span class="mbox-label" tabindex="0" aria-haspopup="menu" data-i18n="menu.help">Help</span>
+          <div class="mbox-sub" role="menu">
+            <button id="help-stamp-btn" class="mbox-item" type="button" aria-haspopup="dialog" data-i18n="menu.helpStamp">Online stamp</button>
           </div>
         </div>
         <label class="toggle lang-toggle" title="Interface language" data-i18n-title="toggle.language">
@@ -88,6 +94,31 @@
           <button id="signature-remove" class="btn danger" type="button" hidden data-i18n="sig.remove">Remove</button>
           <span class="spacer"></span>
           <button id="signature-cancel" class="btn" type="button" data-i18n="sig.cancel">Cancel</button>
+        </div>
+      </dialog>
+      <dialog id="help-stamp-dialog" class="sig-dialog help-dialog">
+        <h3 data-i18n="help.stamp.title">Online stamp</h3>
+        <h4 data-i18n="help.stamp.imageTitle">Create an online stamp image</h4>
+        <ol class="help-steps">
+          <li><span data-i18n="help.stamp.i1">Open</span> <a href="https://shop.deutschepost.de/internetmarke?tid=DP_101003087" target="_blank" rel="noopener noreferrer">shop.deutschepost.de/internetmarke</a></li>
+          <li data-i18n="help.stamp.i2">Choose a suitable online stamp.</li>
+          <li data-i18n="help.stamp.i3">Click the address entry button ("Adresseingabe").</li>
+          <li data-i18n="help.stamp.i4">Use the toggle switch to enter addresses or continue without them.</li>
+          <li data-i18n="help.stamp.i5">As print format ("Druckformate"), choose "DIN A4 Normalpapier (Einlegeblatt)".</li>
+          <li data-i18n="help.stamp.i6">Add it to the cart ("In den Warenkorb") and pay.</li>
+          <li data-i18n="help.stamp.i7">Download the online stamp as a .pdf file.</li>
+        </ol>
+        <p class="help-note" data-i18n="help.stamp.imageNote">Then attach the PDF with Attach > Stamp. Only the stamp is kept; addresses are removed.</p>
+        <h4 data-i18n="help.stamp.codeTitle">Create an online stamp code</h4>
+        <ol class="help-steps">
+          <li data-i18n="help.stamp.c1">Download and open the Post &amp; DHL app.</li>
+          <li data-i18n="help.stamp.c2">Go to code for labeling ("Code zum Beschriften") and follow the instructions.</li>
+          <li><span data-i18n="help.stamp.c3">Detailed guide:</span> <a href="https://www.deutschepost.de/de/m/mobile-briefmarke.html" target="_blank" rel="noopener noreferrer">deutschepost.de/de/m/mobile-briefmarke.html</a></li>
+        </ol>
+        <p class="help-note" data-i18n="help.stamp.codeNote">Then enter the code in stamp: code (starting with "#").</p>
+        <div class="sig-actions">
+          <span class="spacer"></span>
+          <button id="help-stamp-close" class="btn" type="button" data-i18n="help.close">Close</button>
         </div>
       </dialog>
     </header>

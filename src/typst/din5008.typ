@@ -130,7 +130,13 @@
           if stamp-code != none { place(bottom + left, dy: -1mm, text(size: stamp-code-size, weight: "bold", stamp-code)) }
           if stamp-image != none {
             let top-offset = if g.return-zone == 0mm { 4.5mm } else { 0.5mm }
-            place(top + right, dy: top-offset, image(stamp-image, height: g.note-zone - top-offset - 0.5mm, fit: "contain"))
+            let code-room = if stamp-code != none { line-pitch } else { 0mm }
+            let max-height = g.note-zone - top-offset - 0.5mm - code-room
+            place(top + left, dy: top-offset, layout(size => context {
+              let natural = measure(image(stamp-image))
+              let k = calc.min(max-height / natural.height, size.width / natural.width)
+              image(stamp-image, width: natural.width * k, height: natural.height * k)
+            }))
           }
         })
         block(height: recipient-zone, width: 100%, clip: true, {

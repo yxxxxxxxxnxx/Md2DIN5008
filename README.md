@@ -12,10 +12,10 @@ npm run build   # static site in dist/ (deployed to GitHub Pages by .github/work
 ## Features
 
 - **Editor** – Markdown (front matter + body) or Form mode, kept in sync; live PDF preview.
-- **Menu** – New · Open · Save (`.md`, `.pdf`) · Attach (Logo, Stamp, Signature).
+- **Menu** – New · Open · Save (`.md`, `.pdf`) · Attach (Logo, Stamp, Signature) · Help (Online stamp: how to get a DHL Internetmarke PDF or code).
 - **Hints** – gray hints on empty fields; `Required*` lines turn red if left empty; `Optional` sections may be omitted.
 - **Letterhead** – logo image (Attach > Logo) or a text logo, top-right with 10 mm insets.
-- **Stamp** – DHL online stamp image (Attach > Stamp) and code.
+- **Stamp** – DHL online stamp as image or PDF (Attach > Stamp) and code. From a PDF only the stamp block is kept (sender and recipient addresses, crop marks removed); placed left in the address field.
 - **Signature** – upload or draw; background removed, trimmed, printed 15 mm high.
 - **Languages** – English / Deutsch interface.
 
@@ -37,7 +37,7 @@ return:                      # required; printed as "Name  |  Street, ZIP City"
     city: Dresden
 
 stamp:                       # optional
-  image: stamp.png           # Attach > Stamp, or URL
+  image: stamp.pdf           # Attach > Stamp (image or PDF), or URL
   code: "#A0012345678"       # values starting with # are kept as text
 
 recipient:
@@ -106,7 +106,7 @@ Nothing leaves the browser. Letter text, logo and signature live in `sessionStor
 
 | Component | License |
 |---|---|
-| typst.ts, Typst compiler (WASM) | Apache-2.0 |
+| typst.ts, Typst compiler (WASM), pdf.js | Apache-2.0 |
 | CodeMirror 6, Lezer, marked | MIT |
 | yaml, idb | ISC |
 | Noto Sans, Noto Sans KR, Source Code Pro | SIL OFL 1.1 |
