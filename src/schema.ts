@@ -1,32 +1,53 @@
+import type { MessageKey } from './i18n';
+
 export interface FieldSpec {
-  hint?: string;
+  hint?: MessageKey;
   required?: boolean;
+  optional?: boolean;
 }
 
 export const FIELDS: Record<string, FieldSpec> = {
-  form: { hint: 'A or B', required: true },
+  form: { hint: 'hint.form', required: true },
+  letterhead: { optional: true },
+  'letterhead.image': { hint: 'hint.logoImage' },
+  'letterhead.text': { hint: 'hint.logoText' },
   'return.name': { required: true },
   'return.address.street': { required: true },
   'return.address.ZIPcode': { required: true },
   'return.address.city': { required: true },
-  'stamp.image': { hint: 'URL or attached file name' },
-  'stamp.code': {},
-  'recipient.firm': {},
+  stamp: { optional: true },
+  'stamp.image': { hint: 'hint.stampImage' },
+  'stamp.code': { hint: 'hint.stampCode' },
+  'recipient.firm': { optional: true },
   'recipient.name': { required: true },
   'recipient.address.street': { required: true },
   'recipient.address.ZIPcode': { required: true },
   'recipient.address.city': { required: true },
-  'infoBlock[]': { hint: 'Label: value' },
+  infoBlock: { optional: true },
+  'infoBlock[]': { hint: 'hint.info' },
   city: { required: true },
-  date: { hint: 'dd.MM.yyyy', required: true },
-  subject: { required: true },
-  'footer[]': { hint: 'Up to three columns' },
+  date: { hint: 'hint.date', required: true },
+  subject: { optional: true },
+  footer: { optional: true },
+  'footer[]': { hint: 'hint.footer' },
 };
 
-export const BODY_HINT = 'Letter body in Markdown: salutation, text, closing';
+export function hintText(path: string, t: (k: MessageKey) => string, withParens = true): string {
+  const spec = FIELDS[path];
+  if (!spec) return '';
+  const parts: string[] = [];
+  if (spec.optional) parts.push(t('hint.optional'));
+  if (spec.hint) parts.push(withParens ? `(${t(spec.hint)})` : t(spec.hint));
+  if (spec.required) parts.push(t('hint.required'));
+  return parts.join(' ');
+}
 
 export const SKELETON = `---
 form:
+
+letterhead:
+  image:
+  text:
 
 return:
   name:

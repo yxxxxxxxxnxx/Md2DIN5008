@@ -1,20 +1,15 @@
+import { t } from './i18n';
+import { sessionGet, sessionRemove, sessionSet } from './storage';
 const STORAGE_KEY = 'md2din5008:signature';
 const TARGET_HEIGHT_PX = 354;
 
 export function loadSignature(): string | null {
-  try {
-    return localStorage.getItem(STORAGE_KEY);
-  } catch {
-    return null;
-  }
+  return sessionGet(STORAGE_KEY);
 }
 
 export function saveSignature(dataUrl: string | null) {
-  try {
-    if (dataUrl) localStorage.setItem(STORAGE_KEY, dataUrl);
-    else localStorage.removeItem(STORAGE_KEY);
-  } catch {
-  }
+  if (dataUrl) sessionSet(STORAGE_KEY, dataUrl);
+  else sessionRemove(STORAGE_KEY);
 }
 
 export function dataUrlToBytes(dataUrl: string): Uint8Array {
@@ -90,14 +85,14 @@ export function drawSignature(): Promise<string | null | undefined> {
     const dialog = document.createElement('dialog');
     dialog.className = 'sig-dialog';
     dialog.innerHTML = `
-      <h3>Draw your signature</h3>
-      <p class="sig-help">Use a mouse, trackpad, pen or finger.</p>
+      <h3>${t('sig.drawTitle')}</h3>
+      <p class="sig-help">${t('sig.drawHelp')}</p>
       <canvas class="sig-pad"></canvas>
       <div class="sig-actions">
-        <button type="button" class="btn" data-act="clear">Clear</button>
+        <button type="button" class="btn" data-act="clear">${t('sig.clear')}</button>
         <span class="spacer"></span>
-        <button type="button" class="btn" data-act="cancel">Cancel</button>
-        <button type="button" class="btn primary" data-act="use">Use signature</button>
+        <button type="button" class="btn" data-act="cancel">${t('sig.cancel')}</button>
+        <button type="button" class="btn primary" data-act="use">${t('sig.use')}</button>
       </div>`;
     document.body.append(dialog);
 

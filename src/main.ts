@@ -4,11 +4,15 @@ import '@fontsource/source-code-pro/700.css';
 import './style.css';
 import { buildTypst, parseMeta, splitFrontMatter } from './convert';
 import { compilePdf, needsCjk } from './compiler';
-import { createEditor, setDoc, setField } from './editor';
+import { createEditor, refreshHints, setDoc, setField } from './editor';
+import { getLang, onLangChange, setLang as applyLang, t, translateDom, type Lang } from './i18n';
+import { createForm } from './form';
 import { SKELETON } from './schema';
+import { migratePersonalData, sessionGet, sessionSet } from './storage';
 import { dataUrlToBytes, drawSignature, loadSignature, saveSignature, signatureFromFile } from './signature';
 
 const STORAGE_KEY = 'md2din5008:source:v2';
+migratePersonalData();
 
 const $ = <T extends HTMLElement>(sel: string) => document.querySelector(sel) as T;
 const frame = $<HTMLIFrameElement>('#pdf-frame');
@@ -20,17 +24,10 @@ let pdfUrl: string | null = null;
 let pdfName = 'letter.pdf';
 
 function loadInitial(): string {
-  try {
-    return localStorage.getItem(STORAGE_KEY) ?? SKELETON;
-  } catch {
-    return SKELETON;
-  }
+  return sessionGet(STORAGE_KEY) ?? SKELETON;
 }
 function persist(text: string) {
-  try {
-    localStorage.setItem(STORAGE_KEY, text);
-  } catch {
-  }
+  sessionSet(STORAGE_KEY, text);
 }
 
 const attached = new Map<string, Uint8Array>();
@@ -48,12 +45,32 @@ function extensionFor(ref: string, mime?: string): string {
   return 'png';
 }
 
-async function resolveStamp(ref: string): Promise<{ path: string; bytes: Uint8Array } | undefined> {
+const LOGO_KEY = 'md2din5008:logo';
+
+function bytesToDataUrl(bytes: Uint8Array, mime: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(new Blob([bytes as BlobPart], { type: mime }));
+  });
+}
+
+function restoreLogo() {
+  try {
+    const saved = JSON.parse(sessionGet(LOGO_KEY) ?? 'null') as { name: string; dataUrl: string } | null;
+    if (saved?.name && saved.dataUrl) attached.set(saved.name, dataUrlToBytes(saved.dataUrl));
+  } catch {
+  }
+}
+restoreLogo();
+
+async function resolveImage(ref: string, kind: 'stamp' | 'logo', menuHint: string): Promise<{ path: string; bytes: Uint8Array } | undefined> {
   if (!ref) return undefined;
   const local = attached.get(ref);
-  if (local) return { path: `/stamp.${extensionFor(ref)}`, bytes: local };
+  if (local) return { path: `/${kind}.${extensionFor(ref)}`, bytes: local };
   if (!/^(https?:|data:)/i.test(ref)) {
-    throw new Error(`Stamp image "${ref}" not found. Attach the file again with "Attach stamp image", or use a URL.`);
+    throw new Error(t('err.imageMissing', { ref, menu: menuHint }));
   }
   let p = fetched.get(ref);
   if (!p) {
@@ -66,9 +83,9 @@ async function resolveStamp(ref: string): Promise<{ path: string; bytes: Uint8Ar
   }
   try {
     const mime = ref.startsWith('data:') ? ref.slice(5, ref.indexOf(';')) : undefined;
-    return { path: `/stamp.${extensionFor(ref, mime)}`, bytes: await p };
+    return { path: `/${kind}.${extensionFor(ref, mime)}`, bytes: await p };
   } catch (e) {
-    throw new Error(`Could not load stamp image (${(e as Error).message}). The server may not allow cross-origin requests.`);
+    throw new Error(t('err.imageLoad', { ref, reason: (e as Error).message }));
   }
 }
 
@@ -91,13 +108,17 @@ async function render() {
   const text = editor.state.doc.toString();
   try {
     const meta = parseMeta(splitFrontMatter(text).yaml);
-    const stamp = await resolveStamp(String(meta.stamp?.image ?? '').trim());
+    const [stamp, logo] = await Promise.all([
+      resolveImage(String(meta.stamp?.image ?? '').trim(), 'stamp', t('menuPath.stamp')),
+      resolveImage(String(meta.letterhead?.image ?? '').trim(), 'logo', t('menuPath.logo')),
+    ]);
     if (gen !== generation) return;
     const files: Record<string, Uint8Array> = {};
     if (stamp) files[stamp.path] = stamp.bytes;
+    if (logo) files[logo.path] = logo.bytes;
     if (signature) files[SIGNATURE_PATH] = signature;
-    const { typst } = buildTypst(text, { stamp: stamp?.path, signature: signature ? SIGNATURE_PATH : undefined });
-    setStatus(needsCjk(typst) && !cjkLoaded ? 'Loading CJK fonts…' : 'Compiling…', 'busy');
+    const { typst } = buildTypst(text, { stamp: stamp?.path, logo: logo?.path, signature: signature ? SIGNATURE_PATH : undefined });
+    setStatus(needsCjk(typst) && !cjkLoaded ? t('status.cjk') : t('status.compiling'), 'busy');
     const pdf = await compilePdf(typst, files);
     if (needsCjk(typst)) cjkLoaded = true;
     if (gen !== generation) return;
@@ -108,25 +129,100 @@ async function render() {
     const subject = String(meta.subject ?? '').trim();
     pdfName = (subject ? subject.replace(/[\\/:*?"<>|]+/g, '').slice(0, 60) : 'letter') + '.pdf';
     downloadBtn.disabled = false;
-    setStatus(`Done · ${(pdf.byteLength / 1024).toFixed(0)} KB`);
+    setStatus(`${t('status.done')} · ${(pdf.byteLength / 1024).toFixed(0)} KB`);
   } catch (e) {
     if (gen !== generation) return;
     console.error(e);
     const msg = typeof e === 'string' ? e : ((e as Error).message ?? String(e));
-    showError((e as Error)?.name === 'YAMLParseError' ? 'Front matter error: ' + msg : msg);
+    showError((e as Error)?.name === 'YAMLParseError' ? t('err.frontMatter', { msg }) : msg);
   }
 }
 
 function showError(msg: string) {
   errorEl.textContent = msg;
   errorEl.hidden = false;
-  setStatus('Error', 'err');
+  setStatus(t('status.error'), 'err');
 }
 
-const editor = createEditor($('#editor'), loadInitial(), (text) => {
+const MODE_KEY = 'md2din5008:mode';
+const LANG_KEY = 'md2din5008:lang';
+const editorEl = $<HTMLDivElement>('#editor');
+const formEl = $<HTMLFormElement>('#letter-form');
+const modeToggle = $<HTMLInputElement>('#mode-toggle');
+const langToggle = $<HTMLInputElement>('#lang-toggle');
+let fromForm = false;
+
+function readPref(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+function writePref(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+  }
+}
+
+applyLang(readPref(LANG_KEY) === 'de' ? 'de' : 'en');
+translateDom();
+document.documentElement.lang = getLang();
+
+const editor = createEditor(editorEl, loadInitial(), (text) => {
   persist(text);
+  if (!fromForm && !formEl.hidden) form.load(text);
   schedule();
 });
+
+const onFormChange = (text: string) => {
+  fromForm = true;
+  setDoc(editor, text);
+  fromForm = false;
+};
+let form = createForm(formEl, onFormChange);
+
+function setMode(mode: 'markdown' | 'form') {
+  const isForm = mode === 'form';
+  modeToggle.checked = isForm;
+  if (isForm) form.load(editor.state.doc.toString());
+  formEl.hidden = !isForm;
+  editorEl.hidden = isForm;
+  writePref(MODE_KEY, mode);
+}
+for (const toggle of document.querySelectorAll<HTMLLabelElement>('label.toggle')) {
+  const input = toggle.querySelector('input')!;
+  toggle.addEventListener('click', (e) => {
+    e.preventDefault();
+    const choice = (e.target as HTMLElement).closest<HTMLElement>('[data-value]')?.dataset.value;
+    const next = choice ? choice === 'on' : !input.checked;
+    if (next === input.checked) return;
+    input.checked = next;
+    input.dispatchEvent(new Event('change'));
+  });
+}
+
+modeToggle.addEventListener('change', () => setMode(modeToggle.checked ? 'form' : 'markdown'));
+setMode(readPref(MODE_KEY) === 'form' ? 'form' : 'markdown');
+
+onLangChange(() => {
+  translateDom();
+  document.documentElement.lang = getLang();
+  form = createForm(formEl, onFormChange);
+  if (!formEl.hidden) form.load(editor.state.doc.toString());
+  refreshHints(editor);
+  schedule();
+});
+
+function setLang(lang: Lang) {
+  langToggle.checked = lang === 'de';
+  document.documentElement.dataset.uiLang = lang;
+  writePref(LANG_KEY, lang);
+  applyLang(lang);
+}
+langToggle.addEventListener('change', () => setLang(langToggle.checked ? 'de' : 'en'));
+setLang(getLang());
 
 const SIGNATURE_PATH = '/signature.png';
 const sigButton = $<HTMLButtonElement>('#signature-btn');
@@ -136,13 +232,23 @@ let signature: Uint8Array | null = null;
 function setSignature(dataUrl: string | null) {
   signature = dataUrl ? dataUrlToBytes(dataUrl) : null;
   saveSignature(dataUrl);
-  sigButton.textContent = signature ? 'Signature ✓' : 'Signature';
   sigRemove.hidden = !signature;
   schedule();
 }
 setSignature(loadSignature());
 
-const closeMenu = () => (document.activeElement as HTMLElement | null)?.blur();
+const sigDialog = $<HTMLDialogElement>('#signature-dialog');
+const closeMenu = () => {
+  if (sigDialog.open) sigDialog.close();
+  (document.activeElement as HTMLElement | null)?.blur();
+};
+sigButton.addEventListener('click', () => sigDialog.showModal());
+$<HTMLButtonElement>('#signature-cancel').addEventListener('click', closeMenu);
+sigDialog.addEventListener('click', (e) => {
+  const r = sigDialog.getBoundingClientRect();
+  const outside = e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+  if (e.target === sigDialog && outside) closeMenu();
+});
 
 $<HTMLInputElement>('#signature-file').addEventListener('change', async (ev) => {
   const input = ev.target as HTMLInputElement;
@@ -153,9 +259,9 @@ $<HTMLInputElement>('#signature-file').addEventListener('change', async (ev) => 
   try {
     const trimmed = await signatureFromFile(file);
     if (trimmed) setSignature(trimmed);
-    else showError('No signature found in the image: it looks empty or too light.');
+    else showError(t('err.noSignature'));
   } catch {
-    showError(`Could not read "${file.name}" as an image.`);
+    showError(t('err.readImage', { name: file.name }));
   }
 });
 
@@ -178,13 +284,27 @@ $<HTMLInputElement>('#open-file').addEventListener('change', async (ev) => {
   input.value = '';
 });
 
+$<HTMLInputElement>('#logo-file').addEventListener('change', async (ev) => {
+  const input = ev.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  (document.activeElement as HTMLElement | null)?.blur();
+  if (!file) return;
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  attached.set(file.name, bytes);
+  sessionSet(LOGO_KEY, JSON.stringify({ name: file.name, dataUrl: await bytesToDataUrl(bytes, file.type || 'image/png') }));
+  if (!setField(editor, 'letterhead.image', file.name)) {
+    showError(t('err.noLogoLine'));
+  }
+});
+
 $<HTMLInputElement>('#stamp-file').addEventListener('change', async (ev) => {
   const input = ev.target as HTMLInputElement;
   const file = input.files?.[0];
   if (!file) return;
   attached.set(file.name, new Uint8Array(await file.arrayBuffer()));
   if (!setField(editor, 'stamp.image', file.name)) {
-    showError('No "stamp: image:" line found in the front matter. Add it, then attach the file again.');
+    showError(t('err.noStampLine'));
   }
   input.value = '';
 });
@@ -197,7 +317,7 @@ function download(url: string, name: string) {
 }
 
 $<HTMLButtonElement>('#new-letter').addEventListener('click', () => {
-  if (confirm('Replace the current letter with an empty template?')) setDoc(editor, SKELETON);
+  if (confirm(t('confirm.new'))) setDoc(editor, SKELETON);
 });
 
 $<HTMLButtonElement>('#save-md').addEventListener('click', () => {

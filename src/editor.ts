@@ -1,10 +1,15 @@
 import { EditorView, basicSetup } from 'codemirror';
 import { Decoration, ViewPlugin, WidgetType, keymap, type DecorationSet, type ViewUpdate } from '@codemirror/view';
-import { EditorState, RangeSetBuilder, type Text } from '@codemirror/state';
+import { EditorState, RangeSetBuilder, StateEffect, type Text } from '@codemirror/state';
 import { indentWithTab } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
 import { yamlFrontmatter } from '@codemirror/lang-yaml';
-import { BODY_HINT, FIELDS } from './schema';
+import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import { tags as t } from '@lezer/highlight';
+import { FIELDS, hintText } from './schema';
+import { t as tr } from './i18n';
+
+const refreshEffect = StateEffect.define<null>();
 
 export interface FieldLine {
   line: number;
@@ -96,14 +101,10 @@ class HintWidget extends WidgetType {
 }
 
 const missingLine = Decoration.line({ class: 'cm-required-missing' });
+const structureLine = Decoration.line({ class: 'cm-structure' });
 
 function hintLabel(path: string): string | null {
-  const spec = FIELDS[path];
-  if (!spec) return null;
-  const parts = [];
-  if (spec.hint) parts.push(`(${spec.hint})`);
-  if (spec.required) parts.push('Required*');
-  return parts.length ? parts.join(' ') : null;
+  return hintText(path, tr) || null;
 }
 
 const fieldAssist = ViewPlugin.fromClass(
@@ -126,7 +127,8 @@ const fieldAssist = ViewPlugin.fromClass(
     }
 
     update(u: ViewUpdate) {
-      if (!(u.docChanged || u.selectionSet || u.focusChanged)) return;
+      const refresh = u.transactions.some((x) => x.effects.some((e) => e.is(refreshEffect)));
+      if (!(u.docChanged || u.selectionSet || u.focusChanged || refresh)) return;
       if (u.docChanged) this.fields = analyzeFields(u.state.doc);
       const next = this.fieldAtCursor(u.view);
       if (this.current && this.current !== next) this.touched.add(this.current);
@@ -139,10 +141,22 @@ const fieldAssist = ViewPlugin.fromClass(
       const cursorLine = view.hasFocus ? doc.lineAt(view.state.selection.main.head).number : -1;
       const b = new RangeSetBuilder<Decoration>();
 
+      const end = frontMatterEnd(doc);
+      if (end) b.add(doc.line(1).from, doc.line(1).from, structureLine);
+
       for (const f of this.fields) {
-        if (!f.empty || f.parent) continue;
-        const spec = FIELDS[f.path];
         const line = doc.line(f.line);
+        if (f.parent) {
+          b.add(line.from, line.from, structureLine);
+          const label = FIELDS[f.path]?.optional ? hintLabel(f.path) : null;
+          if (label && f.line !== cursorLine) {
+            const needsSpace = !/\s$/.test(doc.sliceString(line.from, f.valueFrom));
+            b.add(line.to, line.to, Decoration.widget({ widget: new HintWidget((needsSpace ? ' ' : '') + label), side: 1 }));
+          }
+          continue;
+        }
+        if (!f.empty) continue;
+        const spec = FIELDS[f.path];
         if (spec?.required && this.touched.has(f.path) && f.line !== cursorLine) b.add(line.from, line.from, missingLine);
         const label = hintLabel(f.path);
         if (label && f.line !== cursorLine) {
@@ -151,12 +165,12 @@ const fieldAssist = ViewPlugin.fromClass(
         }
       }
 
-      const end = frontMatterEnd(doc);
+      if (end) b.add(doc.line(end).from, doc.line(end).from, structureLine);
       if (end && doc.sliceString(doc.line(end).to).trim() === '') {
         const target = end < doc.lines ? end + 1 : end;
         if (target !== end && target !== cursorLine) {
           const l = doc.line(target);
-          b.add(l.to, l.to, Decoration.widget({ widget: new HintWidget(`(${BODY_HINT})`), side: 1 }));
+          b.add(l.to, l.to, Decoration.widget({ widget: new HintWidget(`(${tr('hint.body')})`), side: 1 }));
         }
       }
       return b.finish();
@@ -176,11 +190,36 @@ const autoSpaceAfterColon = EditorState.transactionFilter.of((tr) => {
   return [tr, { changes: { from: line.to, insert: ' ' }, selection: { anchor: line.to + 1 }, sequential: true }];
 });
 
+const highlight = HighlightStyle.define([
+  { tag: [t.propertyName, t.definition(t.propertyName)], color: 'var(--syn-key)' },
+  { tag: [t.string, t.special(t.string), t.content], color: 'var(--syn-value)' },
+  { tag: [t.number, t.bool, t.null, t.atom], color: 'var(--syn-atom)' },
+  { tag: [t.meta, t.processingInstruction, t.punctuation, t.separator, t.bracket, t.contentSeparator], color: 'var(--syn-punct)' },
+  { tag: t.comment, color: 'var(--syn-comment)', fontStyle: 'italic' },
+  { tag: t.heading, color: 'var(--syn-heading)', fontWeight: '700' },
+  { tag: t.strong, fontWeight: '700' },
+  { tag: t.emphasis, fontStyle: 'italic' },
+  { tag: t.strikethrough, textDecoration: 'line-through' },
+  { tag: [t.link, t.url], color: 'var(--syn-link)', textDecoration: 'underline' },
+  { tag: t.monospace, color: 'var(--syn-atom)' },
+  { tag: t.quote, color: 'var(--syn-comment)' },
+  { tag: t.list, color: 'var(--syn-punct)' },
+]);
+
 const theme = EditorView.theme({
-  '&': { height: '100%', fontSize: '13px' },
+  '&': { height: '100%', fontSize: '13px', color: 'var(--text)', backgroundColor: 'var(--field)' },
+  '.cm-content': { caretColor: 'var(--text)' },
+  '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--text)' },
+  '.cm-gutters': { backgroundColor: 'var(--field)', color: 'var(--syn-gutter)', borderRight: '1px solid var(--border)' },
+  '.cm-activeLine': { backgroundColor: 'var(--syn-active)' },
+  '.cm-activeLineGutter': { backgroundColor: 'var(--syn-active)', color: 'var(--text)' },
+  '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': { backgroundColor: 'var(--syn-selection) !important' },
+  '.cm-matchingBracket': { backgroundColor: 'var(--syn-selection)', outline: 'none' },
+  '.cm-foldPlaceholder': { backgroundColor: 'var(--syn-active)', color: 'var(--syn-gutter)', border: '1px solid var(--border)' },
   '.cm-scroller': { fontFamily: '"Source Code Pro", ui-monospace, Menlo, Consolas, monospace', lineHeight: '1.5' },
   '.cm-hint': { color: 'var(--hint)', fontStyle: 'italic', pointerEvents: 'none', userSelect: 'none' },
   '.cm-required-missing, .cm-required-missing *': { color: 'var(--required) !important' },
+  '.cm-structure, .cm-structure span:not(.cm-hint)': { color: 'var(--text) !important' },
 });
 
 export function createEditor(parent: HTMLElement, doc: string, onChange: (text: string) => void): EditorView {
@@ -195,6 +234,7 @@ export function createEditor(parent: HTMLElement, doc: string, onChange: (text: 
         EditorView.lineWrapping,
         fieldAssist,
         autoSpaceAfterColon,
+        syntaxHighlighting(highlight),
         theme,
         EditorView.updateListener.of((u) => {
           if (u.docChanged) onChange(u.state.doc.toString());
@@ -202,6 +242,10 @@ export function createEditor(parent: HTMLElement, doc: string, onChange: (text: 
       ],
     }),
   });
+}
+
+export function refreshHints(view: EditorView) {
+  view.dispatch({ effects: refreshEffect.of(null) });
 }
 
 export function setDoc(view: EditorView, text: string) {

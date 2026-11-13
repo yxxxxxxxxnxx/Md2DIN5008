@@ -1,10 +1,13 @@
 {
   "name": "md2din5008",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "licenses": "node scripts/collect-licenses.mjs",
+    "prebuild": "node scripts/collect-licenses.mjs",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview"
   },
@@ -18,6 +21,7 @@
     "@expo-google-fonts/noto-sans": "^0.4.2",
     "@expo-google-fonts/noto-sans-kr": "^0.4.4",
     "@fontsource/source-code-pro": "^5.3.1",
+    "@lezer/highlight": "^1.2.5",
     "@myriaddreamin/typst-ts-web-compiler": "^0.7.0",
     "@myriaddreamin/typst.ts": "^0.7.0",
     "codemirror": "^6.0.2",

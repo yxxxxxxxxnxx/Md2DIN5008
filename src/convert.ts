@@ -10,6 +10,7 @@ interface Address {
 
 export interface LetterMeta {
   form?: string;
+  letterhead?: { image?: string; text?: string };
   return?: { name?: string; address?: Address };
   stamp?: { image?: string; code?: string };
   recipient?: { firm?: string; name?: string; address?: Address };
@@ -28,9 +29,13 @@ export function splitFrontMatter(source: string): { yaml: string; body: string; 
   return { yaml: m[1], body: source.slice(m[0].length), hasFrontMatter: true };
 }
 
+function quoteHashValues(yamlText: string): string {
+  return yamlText.replace(/^(\s*(?:- +)?[^\s:#][^:#]*?:[ \t]+)(#.*?)\s*$/gm, (_, head: string, value: string) => head + JSON.stringify(value));
+}
+
 export function parseMeta(yamlText: string): LetterMeta {
   if (!yamlText.trim()) return {};
-  const data = parseYaml(yamlText, { schema: 'failsafe' });
+  const data = parseYaml(quoteHashValues(yamlText), { schema: 'failsafe' });
   return data && typeof data === 'object' && !Array.isArray(data) ? (data as LetterMeta) : {};
 }
 
@@ -101,15 +106,16 @@ function metaToArgs(meta: LetterMeta): string {
 
   const info = infoEntries(meta.infoBlock);
   const date = [text(meta.city), text(meta.date)].filter(Boolean).join(', ');
-  if (date) info.push(['Datum', date]);
 
   const args = [
     `form: ${str(text(meta.form).toUpperCase() === 'A' ? 'A' : 'B')}`,
+    `logo-text: ${contentOrNone(meta.letterhead?.text)}`,
     `sender-name: ${contentOrNone(ret.name)}`,
     `sender-address: ${arr(senderAddress.map(content))}`,
     `recipient: ${arr(recipient)}`,
     `stamp-code: ${contentOrNone(meta.stamp?.code)}`,
     `info: ${arr(info.map(([l, v]) => `(${content(l)}, ${content(v)})`))}`,
+    `date: ${contentOrNone(date)}`,
     `subject: ${contentOrNone(meta.subject)}`,
     `footer: ${arr(footerColumns(meta.footer))}`,
     `pdf-title: ${str(text(meta.subject) || 'Brief')}`,
@@ -218,19 +224,52 @@ function blockToken(t: Token, tight: boolean): string {
       return `#table(columns: ${tb.header.length}, align: (${aligns.join(', ')},),\n  ${cells.join(', ')})`;
     }
     case 'html':
-      return '';
+      return (t as Tokens.HTML).raw.includes(GAP_MARK) ? '#v(body-pitch, weak: false)' : '';
     default:
       return tight ? '' : 'raw' in t ? escapeMarkup(decode(String(t.raw))) : '';
   }
 }
 
+const GAP_MARK = '<!--md2din-gap-->';
+
+function keepBlankLines(md: string): string {
+  const lines = md.split(/\r?\n/);
+  const out: string[] = [];
+  let fence: string | null = null;
+  let blanks = 0;
+  const flush = () => {
+    if (blanks > 0 && out.length > 0) {
+      out.push('');
+      for (let i = 1; i < blanks; i++) out.push(GAP_MARK, '');
+    }
+    blanks = 0;
+  };
+  for (const line of lines) {
+    const f = line.match(/^\s*(```+|~~~+)/);
+    if (fence) {
+      out.push(line);
+      if (f && f[1][0] === fence[0] && f[1].length >= fence.length) fence = null;
+      continue;
+    }
+    if (line.trim() === '') {
+      blanks++;
+      continue;
+    }
+    flush();
+    out.push(line);
+    if (f) fence = f[1];
+  }
+  return out.join('\n');
+}
+
 export function markdownToTypst(md: string): string {
-  const tokens = new Lexer({ gfm: true, breaks: true }).lex(md);
+  const tokens = new Lexer({ gfm: true, breaks: true }).lex(keepBlankLines(md));
   return blocks(tokens);
 }
 
 export interface ImagePaths {
   stamp?: string;
+  logo?: string;
   signature?: string;
 }
 
@@ -239,6 +278,7 @@ export function buildTypst(source: string, images: ImagePaths = {}): { typst: st
   const meta = parseMeta(yaml);
   let args = metaToArgs(meta);
   if (images.stamp) args += `,\n  stamp-image: ${str(images.stamp)}`;
+  if (images.logo) args += `,\n  logo-image: ${str(images.logo)}`;
   if (images.signature) args += `,\n  signature-image: ${str(images.signature)}`;
   const typst = `${template}\n\n#show: letter.with(\n  ${args}\n)\n\n${markdownToTypst(body)}\n`;
   return { typst, meta };
