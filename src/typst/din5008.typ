@@ -72,6 +72,7 @@
   footer: (),
   pdf-title: "Brief",
   pdf-author: none,
+  fonts: ("Inter",),
   body,
 ) = {
   let g = din-geometry(form)
@@ -184,7 +185,7 @@
   }
 
   set document(title: pdf-title, author: if pdf-author != none { pdf-author } else { () })
-  set text(font: ("Noto Sans", "Noto Sans KR"), size: font-size, lang: "de", region: "DE", top-edge: 0.8em, bottom-edge: -0.2em)
+  set text(font: fonts, size: font-size, lang: "de", region: "DE", top-edge: 0.8em, bottom-edge: -0.2em)
   set par(leading: body-pitch - font-size, spacing: 2 * body-pitch - font-size, justify: true)
 
   set page(

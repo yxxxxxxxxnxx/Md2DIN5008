@@ -7,9 +7,11 @@
   "scripts": {
     "dev": "vite",
     "licenses": "node scripts/collect-licenses.mjs",
-    "prebuild": "node scripts/collect-licenses.mjs",
+    "prebuild": "node scripts/copy-fonts.mjs && node scripts/collect-licenses.mjs",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "fonts": "node scripts/copy-fonts.mjs",
+    "predev": "node scripts/copy-fonts.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "^6.11.1",
@@ -18,8 +20,12 @@
     "@codemirror/language": "^6.13.1",
     "@codemirror/state": "^6.7.6",
     "@codemirror/view": "^6.43.15",
-    "@expo-google-fonts/noto-sans": "^0.4.2",
-    "@expo-google-fonts/noto-sans-kr": "^0.4.4",
+    "@expo-google-fonts/inter": "0.4.2",
+    "@expo-google-fonts/noto-sans-jp": "0.4.4",
+    "@expo-google-fonts/noto-sans-kr": "0.4.4",
+    "@expo-google-fonts/noto-sans-sc": "0.4.4",
+    "@expo-google-fonts/noto-sans-tc": "0.4.4",
+    "@fontsource/inter": "5.3.0",
     "@fontsource/source-code-pro": "^5.3.1",
     "@lezer/highlight": "^1.2.5",
     "@myriaddreamin/typst-ts-web-compiler": "^0.7.0",

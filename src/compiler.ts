@@ -1,32 +1,29 @@
 import { createTypstCompiler, type TypstCompiler } from '@myriaddreamin/typst.ts/dist/esm/compiler.mjs';
 import { disableDefaultFontAssets, loadFonts } from '@myriaddreamin/typst.ts/dist/esm/options.init.mjs';
+import { fontPlan, type FontPlan } from './fonts';
 import compilerWasm from '@myriaddreamin/typst-ts-web-compiler/pkg/typst_ts_web_compiler_bg.wasm?url';
 
 const fontUrl = (f: string) => new URL(`${import.meta.env.BASE_URL}fonts/${f}`, location.href).href;
 
-const LATIN_FONTS = ['NotoSans_400Regular.ttf', 'NotoSans_400Regular_Italic.ttf', 'NotoSans_700Bold.ttf', 'NotoSans_700Bold_Italic.ttf'];
-const CJK_FONTS = ['NotoSansKR_400Regular.ttf', 'NotoSansKR_700Bold.ttf'];
+const compilers = new Map<string, Promise<TypstCompiler>>();
 
-const CJK = /[ᄀ-ᇿ⺀-鿿가-힯豈-﫿＀-￯]/;
-
-const compilers = new Map<'latin' | 'cjk', Promise<TypstCompiler>>();
-
-function getCompiler(kind: 'latin' | 'cjk'): Promise<TypstCompiler> {
-  let c = compilers.get(kind);
+function getCompiler(plan: FontPlan): Promise<TypstCompiler> {
+  let c = compilers.get(plan.key);
   if (!c) {
-    const fonts = (kind === 'cjk' ? [...LATIN_FONTS, ...CJK_FONTS] : LATIN_FONTS).map(fontUrl);
+    const fonts = plan.files.map(fontUrl);
     c = (async () => {
       const compiler = createTypstCompiler();
       await compiler.init({ getModule: () => compilerWasm, beforeBuild: [disableDefaultFontAssets(), loadFonts(fonts)] });
       return compiler;
     })();
-    c.catch(() => compilers.delete(kind));
-    compilers.set(kind, c);
+    c.catch(() => compilers.delete(plan.key));
+    compilers.set(plan.key, c);
   }
   return c;
 }
 
-export const needsCjk = (source: string) => CJK.test(source);
+export const needsExtraFonts = (source: string) => fontPlan(source).extra;
+export const isCompilerReady = (source: string) => compilers.has(fontPlan(source).key);
 
 interface Diagnostic {
   range?: string;
@@ -35,7 +32,7 @@ interface Diagnostic {
 }
 
 export async function compilePdf(mainContent: string, files: Record<string, Uint8Array> = {}): Promise<Uint8Array> {
-  const compiler = await getCompiler(needsCjk(mainContent) ? 'cjk' : 'latin');
+  const compiler = await getCompiler(fontPlan(mainContent));
   compiler.resetShadow();
   for (const [path, bytes] of Object.entries(files)) compiler.mapShadow(path, bytes);
   compiler.addSource('/main.typ', mainContent);

@@ -1,9 +1,14 @@
+import '@fontsource/inter/400.css';
+import '@fontsource/inter/400-italic.css';
+import '@fontsource/inter/600.css';
+import '@fontsource/inter/700.css';
+import '@fontsource/inter/800.css';
 import '@fontsource/source-code-pro/400.css';
 import '@fontsource/source-code-pro/400-italic.css';
 import '@fontsource/source-code-pro/700.css';
 import './style.css';
 import { buildTypst, parseMeta, splitFrontMatter } from './convert';
-import { compilePdf, needsCjk } from './compiler';
+import { compilePdf, isCompilerReady, needsExtraFonts } from './compiler';
 import { createEditor, refreshHints, setDoc, setField } from './editor';
 import { getLang, onLangChange, setLang as applyLang, t, translateDom, type Lang } from './i18n';
 import { createForm } from './form';
@@ -109,7 +114,6 @@ async function resolveImage(ref: string, kind: 'stamp' | 'logo', menuHint: strin
 
 let timer: number | undefined;
 let generation = 0;
-let cjkLoaded = false;
 
 function setStatus(text: string, kind: 'busy' | 'ok' | 'err' = 'ok') {
   statusEl.textContent = text;
@@ -136,9 +140,8 @@ async function render() {
     if (logo) files[logo.path] = logo.bytes;
     if (signature) files[SIGNATURE_PATH] = signature;
     const { typst } = buildTypst(text, { stamp: stamp?.path, logo: logo?.path, signature: signature ? SIGNATURE_PATH : undefined });
-    setStatus(needsCjk(typst) && !cjkLoaded ? t('status.cjk') : t('status.compiling'), 'busy');
+    setStatus(needsExtraFonts(typst) && !isCompilerReady(typst) ? t('status.cjk') : t('status.compiling'), 'busy');
     const pdf = await compilePdf(typst, files);
-    if (needsCjk(typst)) cjkLoaded = true;
     if (gen !== generation) return;
     errorEl.hidden = true;
     if (pdfUrl) URL.revokeObjectURL(pdfUrl);

@@ -16,7 +16,8 @@ for (const dir of paths) {
   const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
   const key = `${pkg.name}@${pkg.version}`;
   if (seen.has(key)) continue;
-  const files = readdirSync(dir).filter((f) => /^(licen[cs]e|copying|notice)/i.test(f) || /^license_font/i.test(f));
+  const isLicense = (f) => /^(licen[cs]e|copying|notice)/i.test(f) || /^license_font/i.test(f);
+  const files = readdirSync(dir).filter(isLicense);
   seen.set(key, {
     name: pkg.name,
     version: pkg.version,
@@ -44,7 +45,8 @@ Each component is distributed under its own license, reproduced below.
 The Typst compiler (@myriaddreamin/typst-ts-web-compiler) is a WebAssembly build of
 Typst (https://github.com/typst/typst, Apache-2.0) and the Rust crates it depends on.
 
-Fonts in fonts/: Noto Sans, Noto Sans KR (SIL Open Font License 1.1), served unmodified.
+Fonts in fonts/: Inter, Noto Sans KR/JP/SC/TC (SIL Open Font License 1.1), served unmodified.
+Interface font: Inter (SIL Open Font License 1.1), via @fontsource/inter.
 Editor font: Source Code Pro (SIL Open Font License 1.1), via @fontsource/source-code-pro.
 `;
 

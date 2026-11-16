@@ -59,28 +59,32 @@ html, body { height: 100%; margin: 0; }
 body {
   background: var(--bg);
   color: var(--text);
-  font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: 14px/1.4 "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   display: flex;
   flex-direction: column;
 }
 
 .toolbar {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "brand lang" "menu menu";
+  gap: 8px 24px;
   padding: 32px 16px 0;
   background: var(--panel);
 }
-.brand-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0; line-height: 0; }
-.logo { display: block; height: 48px; width: auto; min-width: 0; fill: var(--logo); }
-.logo-right { flex: 0 1 auto; max-width: calc(100% - 120px); }
-.menu-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-.toggle.lang-toggle { margin-left: auto; }
+.brand-row { grid-area: brand; display: flex; align-items: center; margin: 0; line-height: 0; }
+.logo { display: block; width: 100%; max-width: calc(48px * 3988 / 284); height: auto; aspect-ratio: 3988 / 284; fill: var(--logo); }
+.menu-bar { grid-area: menu; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.toggle.lang-toggle { grid-area: lang; align-self: start; justify-self: end; line-height: 1; }
+@media (max-width: 880px) {
+  .toolbar { grid-template-areas: "brand brand" "menu lang"; }
+  .toggle.lang-toggle { align-self: center; }
+}
 .mbox {
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   display: inline-flex;
-  font: 600 16px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: 600 16px/1 "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 .mbox-label, .mbox-item {
   display: block;
@@ -216,7 +220,7 @@ body {
 .f-field { display: flex; flex-direction: column; gap: 0; font-size: 12px; color: var(--text); }
 .f-field.wide { grid-column: 1 / -1; }
 .letter-form input, .letter-form select, .letter-form textarea {
-  font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: 13px/1.4 "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   color: var(--text);
   background: var(--field);
   border: none;
@@ -253,7 +257,7 @@ body {
 .f-col textarea { resize: vertical; }
 .f-col-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; }
 .f-btn {
-  font: 600 13px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: 600 13px/1 "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   color: var(--bg);
   background: var(--text);
   border: none;

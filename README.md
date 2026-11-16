@@ -1,4 +1,21 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/logo-dark.svg">
+    <img src="docs/logo-light.svg" alt="Md2DIN5008" width="676">
+  </picture>
+</p>
+
 # Md2DIN5008
+
+Are you running your own small (but very professional) business in Germany? Then here's a fun fact: Germany has a standard for how business letters should look. It's called DIN 5008, and it covers everything from where the address goes to how far the text sits from the edge of the page.
+
+Sure, it's not the law, and there's some room for flexibility. But still… rules are rules! It always bugged me that so many letters don't really follow it. They look a little less careful and professional, and, most importantly, not German enough.
+
+So I built a simple online tool, Md2DIN5008. You write your letter in Markdown with a short YAML header, and it gives you a polished, DIN 5008-compliant PDF. For those who aren't familiar with Markdown syntax, I also added a form mode where you just fill in the fields. And everything runs right in your browser, so your letters never leave your computer. Your (business) privacy and data are safe!
+
+👉 **Try it:** https://yxxxxxxxxnxx.github.io/Md2DIN5008/
+
+---
 
 Write a business letter in Markdown, get a **DIN 5008:2020** PDF (Form A or B).
 Runs entirely in the browser with [Typst](https://typst.app) (WASM, via [typst.ts](https://github.com/Myriad-Dreamin/typst.ts)) — no server, no CDN.
@@ -9,68 +26,18 @@ npm run dev     # http://localhost:5173
 npm run build   # static site in dist/ (deployed to GitHub Pages by .github/workflows/deploy.yml)
 ```
 
+`dev` and `build` first copy the PDF fonts from `node_modules` into `public/fonts/` (`npm run fonts`); the font files are not committed.
+
 ## Features
 
 - **Editor** – Markdown (front matter + body) or Form mode, kept in sync; live PDF preview.
-- **Menu** – New · Open · Save (`.md`, `.pdf`) · Attach (Logo, Stamp, Signature) · Help (Online stamp: how to get a DHL Internetmarke PDF or code).
+- **Menu** – New · Open · Save (`.md`, `.pdf`) · Attach (Logo, Stamp, Signature) · Help (Online stamp: how to get a Deutsche Post/DHL Internetmarke PDF or code).
 - **Hints** – gray hints on empty fields; `Required*` lines turn red if left empty; `Optional` sections may be omitted.
 - **Letterhead** – logo image (Attach > Logo) or a text logo, top-right with 10 mm insets.
-- **Stamp** – DHL online stamp as image or PDF (Attach > Stamp) and code. From a PDF only the stamp block is kept (sender and recipient addresses, crop marks removed); placed left in the address field.
+- **Stamp** – Deutsche Post/DHL online stamp as image or PDF (Attach > Stamp) and code. From a PDF only the stamp block is kept (sender and recipient addresses, crop marks removed); placed left in the address field.
 - **Signature** – upload or draw; background removed, trimmed, printed 15 mm high.
 - **Languages** – English / Deutsch interface.
-
-## Input
-
-```markdown
----
-form: B                      # A or B (required)
-
-letterhead:                  # optional
-  image: logo.png            # Attach > Logo, or URL
-  text: Muster & Söhne       # used when there is no image
-
-return:                      # required; printed as "Name  |  Street, ZIP City"
-  name: Max Mustermann
-  address:
-    street: Musterstraße 12
-    ZIPcode: 01067
-    city: Dresden
-
-stamp:                       # optional
-  image: stamp.pdf           # Attach > Stamp (image or PDF), or URL
-  code: "#A0012345678"       # values starting with # are kept as text
-
-recipient:
-  firm:                      # optional; the line stays blank
-  name: Frau Erika Beispiel
-  address:
-    street: Hauptstraße 5
-    ZIPcode: 80331
-    city: München
-
-infoBlock:                   # optional; "Label: value"
-  - Ihr Zeichen: EB-2026-17
-
-city: Dresden                # required
-date: 10.11.2026             # required, dd.MM.yyyy
-
-subject: Angebot             # optional; space is kept when empty
-
-footer:                      # optional; up to three columns
-  - [Muster GmbH, Sitz Dresden]
-  - [IBAN DE00 0000 0000 0000, BIC XXXXDEXX]
----
-
-Sehr geehrte Frau Beispiel,
-
-…
-
-Mit freundlichen Grüßen
-```
-
-- One newline = line break; each extra blank line adds a line of space. Body is justified.
-- After the body: one blank line, the signature (if any), then `return.name`.
-- Values are read as plain strings (leading zeros in ZIP codes are kept).
+- **Multilingual letters** – Korean, Japanese and Chinese (Simplified and Traditional) text is supported in the PDF; the matching Noto Sans CJK font is loaded only when needed.
 
 ## Layout
 
@@ -82,8 +49,6 @@ Mit freundlichen Grüßen
 | Fold / punch marks | 87, 192 / 148.5 mm | 105, 210 / 148.5 mm |
 
 - Text field: 25 mm left, 20 mm right, starts 8.46 mm below the address field or info block.
-- Footer ends 10 mm above the page edge and grows upwards; page number and text field move with it (4.23 mm steps).
-- Date line sits at the bottom of the info block.
 
 | Text | Size |
 |---|---|
@@ -94,7 +59,9 @@ Mit freundlichen Grüßen
 | Footer, return-address line | 8 pt |
 | Text logo (bold) | 24 pt |
 
-Fonts: Noto Sans; Noto Sans KR for CJK text (loaded only when needed). Template: [src/typst/din5008.typ](src/typst/din5008.typ).
+PDF fonts: Inter; Noto Sans KR, JP, SC or TC for Korean, Japanese and Chinese (Simplified or Traditional), loaded only when the letter needs them. Template: [src/typst/din5008.typ](src/typst/din5008.typ).
+
+Interface font: Inter. Editor font: Source Code Pro (other scripts use system fonts).
 
 ## Privacy
 
@@ -109,6 +76,6 @@ Nothing leaves the browser. Letter text, logo and signature live in `sessionStor
 | typst.ts, Typst compiler (WASM), pdf.js | Apache-2.0 |
 | CodeMirror 6, Lezer, marked | MIT |
 | yaml, idb | ISC |
-| Noto Sans, Noto Sans KR, Source Code Pro | SIL OFL 1.1 |
+| Inter, Noto Sans KR/JP/SC/TC, Source Code Pro | SIL OFL 1.1 |
 
 Full texts: `public/THIRD_PARTY_LICENSES.txt` (generated by `npm run licenses`, runs before every build) and `public/fonts/OFL.txt`.

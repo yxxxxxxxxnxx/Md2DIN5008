@@ -1,6 +1,7 @@
 import { Lexer, type Token, type Tokens } from 'marked';
 import { parse as parseYaml } from 'yaml';
 import template from './typst/din5008.typ?raw';
+import { fontPlan } from './fonts';
 
 interface Address {
   street?: string;
@@ -280,6 +281,7 @@ export function buildTypst(source: string, images: ImagePaths = {}): { typst: st
   if (images.stamp) args += `,\n  stamp-image: ${str(images.stamp)}`;
   if (images.logo) args += `,\n  logo-image: ${str(images.logo)}`;
   if (images.signature) args += `,\n  signature-image: ${str(images.signature)}`;
+  args += `,\n  fonts: (${fontPlan(source).families.map(str).join(', ')},)`;
   const typst = `${template}\n\n#show: letter.with(\n  ${args}\n)\n\n${markdownToTypst(body)}\n`;
   return { typst, meta };
 }
